@@ -26,17 +26,17 @@ KEY_NAME = 'Gmail Watcher Login'
 
 # Clear old login entry and create a new one from user input
 def new_auth():
-	# Clear all old entries
+    # Clear all old entries
     try:
         for item in gk.find_items_sync(gk.ITEM_GENERIC_SECRET, {'application': KEY_NAME}):
             gk.item_delete_sync(KEYRING_NAME, item.item_id)
     except gk.NoMatchError: pass
     
-	# Read in username and password
+    # Read in username and password
     user = raw_input('User: ')
     passwd = getpass.getpass()
     
-	# Save the user as an attribute, set application to make this easier to iterate through
+    # Save the user as an attribute, set application to make this easier to iterate through
     attrs = {'user': user, 'application': KEY_NAME}
 
     gk.item_create_sync(KEYRING_NAME, gk.ITEM_GENERIC_SECRET, KEY_NAME, attrs, passwd, True)
@@ -74,17 +74,17 @@ while not logged_in:
 # Watch emails
 print 'Watching email \'till death do us part (Ctrl+C)'
 try:
-	# Get the initial list of unread emails
+    # Get the initial list of unread emails
     obj.select()
     prev = obj.search(None,'UNSEEN')[1][0].split(' ')
     
-	# Get the initial number of unread emails
+    # Get the initial number of unread emails
     if prev[0] is '':
         count = 0
     else:
         count = len(prev)
     
-	# Display initial number of unread emails
+    # Display initial number of unread emails
     if count is 1:
         n = pynotify.Notification("Successfully Authenticated!", "%d unread email" % count, "gmail")
     else:
@@ -93,14 +93,14 @@ try:
     n.show()
     
     while True:
-		# Get a list of unread emails
+        # Get a list of unread emails
         obj.select()
         unread = obj.search(None,'UNSEEN')[1][0].split(' ')
         
-		# Check if any of the unread emails is new
+        # Check if any of the unread emails is new
         for email in unread:
             if email not in prev and email is not '':
-				# Display a notification if there is a new unread email
+                # Display a notification if there is a new unread email
                 count = len(unread)
                 
                 if count is 1:
