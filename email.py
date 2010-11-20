@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import time, imaplib, getpass
+import time, imaplib, getpass, socket
 
 missing_libs = []
 
@@ -43,6 +43,42 @@ def new_auth():
     
     return user,passwd
 
+def start_session():
+    try:
+        return imaplib.IMAP4_SSL('imap.gmail.com','993')
+    except socket.error:
+        return None
+
+def login(user,passwd):
+    # Start the IMAP session with gmail
+    print 'Starting SSL IMAP session, could take a minute'
+    
+    session = start_session()
+    
+    if session is None:
+        print 'What is gmail? (your connection or dns may be down)'
+        print 'Trying until I succeed!'
+        
+        while session is None:
+            session = start_session()
+                
+    logged_in = False
+
+    # Try to log in until it succeeds, try new login information if it fails
+    while not logged_in:
+        try:
+            print 'Trying to log in...'
+            session.login(user,passwd)
+            print 'Successfully authenticated!'
+            logged_in = True
+            
+        except imaplib.IMAP4.error as err:
+            print 'Could not authenticate! '
+            user,passwd = new_auth()
+    
+    return session
+    
+
 # See if previous login information exists in the keyring
 try:
     info = gk.find_items_sync(gk.ITEM_GENERIC_SECRET, {'application': KEY_NAME})
@@ -53,30 +89,23 @@ try:
 except gk.NoMatchError:
     user,passwd = new_auth()
 
-# Start the IMAP session with gmail
-print 'Starting SSL IMAP session, could take a minute'
-obj = imaplib.IMAP4_SSL('imap.gmail.com','993')
-
-logged_in = False
-
-# Try to log in until it succeeds, try new login information if it fails
-while not logged_in:
-    try:
-        print 'Trying to log in...'
-        obj.login(user,passwd)
-        print 'Successfully authenticated!'
-        logged_in = True
-        
-    except imaplib.IMAP4.error as err:
-        print err
-        user,passwd = new_auth()
+session = login(user,passwd)
 
 # Watch emails
-print 'Watching email \'till death do us part (Ctrl+C)'
+print 'Watching inbox \'till (Ctrl+C) do us part'
 try:
     # Get the initial list of unread emails
-    obj.select()
-    prev = obj.search(None,'UNSEEN')[1][0].split(' ')
+    read_in = False
+    
+    while not read_in:
+        try:
+            session.select()
+            prev = session.search(None,'UNSEEN')[1][0].split(' ')
+            read_in = True
+        except socket.error:
+            print 'Disconnected! Trying to reconnect'
+            session = login(user,passwd)
+    
     
     # Get the initial number of unread emails
     if prev[0] is '':
@@ -94,8 +123,9 @@ try:
     
     while True:
         # Get a list of unread emails
-        obj.select()
-        unread = obj.search(None,'UNSEEN')[1][0].split(' ')
+        
+        session.select()
+        unread = session.search(None,'UNSEEN')[1][0].split(' ')
         
         # Check if any of the unread emails is new
         for email in unread:
@@ -116,5 +146,6 @@ try:
         time.sleep(5)
         
 except KeyboardInterrupt:
-    obj.logout()
+    print 'Logging out'
+    session.logout()
 
