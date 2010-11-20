@@ -60,6 +60,7 @@ def login(user,passwd):
         print 'Trying until I succeed!'
         
         while session is None:
+            time.sleep(5)
             session = start_session()
                 
     logged_in = False
@@ -78,74 +79,74 @@ def login(user,passwd):
     
     return session
     
+if __name__ == "__main__":
+    # See if previous login information exists in the keyring
+    try:
+        info = gk.find_items_sync(gk.ITEM_GENERIC_SECRET, {'application': KEY_NAME})
+        user = info[0].attributes['user']
+        passwd = info[0].secret
 
-# See if previous login information exists in the keyring
-try:
-    info = gk.find_items_sync(gk.ITEM_GENERIC_SECRET, {'application': KEY_NAME})
-    user = info[0].attributes['user']
-    passwd = info[0].secret
+    # If not, read in and store new login information
+    except gk.NoMatchError:
+        user,passwd = new_auth()
 
-# If not, read in and store new login information
-except gk.NoMatchError:
-    user,passwd = new_auth()
+    session = login(user,passwd)
 
-session = login(user,passwd)
-
-# Watch emails
-print 'Watching inbox \'till (Ctrl+C) do us part'
-try:
-    # Get the initial list of unread emails
-    read_in = False
-    
-    while not read_in:
-        try:
+    # Watch emails
+    print 'Watching inbox \'till (Ctrl+C) do us part'
+    try:
+        # Get the initial list of unread emails
+        read_in = False
+        
+        while not read_in:
+            try:
+                session.select()
+                prev = session.search(None,'UNSEEN')[1][0].split(' ')
+                read_in = True
+            except socket.error:
+                print 'Disconnected! Trying to reconnect'
+                session = login(user,passwd)
+        
+        
+        # Get the initial number of unread emails
+        if prev[0] is '':
+            count = 0
+        else:
+            count = len(prev)
+        
+        # Display initial number of unread emails
+        if count is 1:
+            n = pynotify.Notification("Successfully Authenticated!", "%d unread email" % count, "gmail")
+        else:
+            n = pynotify.Notification("Successfully Authenticated!", "%d unread emails" % count, "gmail")
+        
+        n.show()
+        
+        while True:
+            # Get a list of unread emails
+            
             session.select()
-            prev = session.search(None,'UNSEEN')[1][0].split(' ')
-            read_in = True
-        except socket.error:
-            print 'Disconnected! Trying to reconnect'
-            session = login(user,passwd)
-    
-    
-    # Get the initial number of unread emails
-    if prev[0] is '':
-        count = 0
-    else:
-        count = len(prev)
-    
-    # Display initial number of unread emails
-    if count is 1:
-        n = pynotify.Notification("Successfully Authenticated!", "%d unread email" % count, "gmail")
-    else:
-        n = pynotify.Notification("Successfully Authenticated!", "%d unread emails" % count, "gmail")
-    
-    n.show()
-    
-    while True:
-        # Get a list of unread emails
-        
-        session.select()
-        unread = session.search(None,'UNSEEN')[1][0].split(' ')
-        
-        # Check if any of the unread emails is new
-        for email in unread:
-            if email not in prev and email is not '':
-                # Display a notification if there is a new unread email
-                count = len(unread)
-                
-                if count is 1:
-                    n = pynotify.Notification("New Email!", "%d unread email" % count, "gmail")
-                else:
-                    n = pynotify.Notification("New Email!", "%d unread emails" % count, "gmail")
-                
-                n.show()
-                break;
-        
-        prev = unread
-        
-        time.sleep(5)
-        
-except KeyboardInterrupt:
-    print 'Logging out'
-    session.logout()
+            unread = session.search(None,'UNSEEN')[1][0].split(' ')
+            
+            # Check if any of the unread emails is new
+            for email in unread:
+                if email not in prev and email is not '':
+                    # Display a notification if there is a new unread email
+                    count = len(unread)
+                    
+                    if count is 1:
+                        n = pynotify.Notification("New Email!", "%d unread email" % count, "gmail")
+                    else:
+                        n = pynotify.Notification("New Email!", "%d unread emails" % count, "gmail")
+                    
+                    n.show()
+                    break;
+            
+            prev = unread
+            
+            time.sleep(5)
+            
+    except KeyboardInterrupt:
+        print 'Logging out'
+        session.logout()
 
