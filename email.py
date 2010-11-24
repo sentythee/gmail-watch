@@ -93,7 +93,7 @@ if __name__ == "__main__":
     session = login(user,passwd)
 
     # Watch emails
-    print 'Watching inbox \'till (Ctrl+C) do us part'
+    print 'Watching inbox for a very, very long time'
     try:
         # Get the initial list of unread emails
         read_in = False
@@ -135,6 +135,8 @@ if __name__ == "__main__":
                 except socket.error:
                     print 'Disconnected! Trying to reconnect'
                     session = login(user,passwd)
+                except imaplib.error:
+                    continue
             
             # Check if any of the unread emails is new
             for email in unread:
