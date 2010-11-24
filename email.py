@@ -125,8 +125,16 @@ if __name__ == "__main__":
         while True:
             # Get a list of unread emails
             
-            session.select()
-            unread = session.search(None,'UNSEEN')[1][0].split(' ')
+            read_in = False
+            
+            while not read_in:
+                try:
+                    session.select()
+                    unread = session.search(None,'UNSEEN')[1][0].split(' ')
+                    read_in = True
+                except socket.error:
+                    print 'Disconnected! Trying to reconnect'
+                    session = login(user,passwd)
             
             # Check if any of the unread emails is new
             for email in unread:
