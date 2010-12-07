@@ -135,7 +135,7 @@ if __name__ == "__main__":
                 except socket.error:
                     print 'Disconnected! Trying to reconnect'
                     session = login(user,passwd)
-                except imaplib.error:
+                except imaplib.IMAP4.error:
                     continue
             
             # Check if any of the unread emails is new
