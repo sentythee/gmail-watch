@@ -78,6 +78,23 @@ def login(user,passwd):
             user,passwd = new_auth()
     
     return session
+
+def get_unread(session):
+    # Get the initial list of unread emails
+    read_in = False
+    
+    while not read_in:
+        try:
+            session.select()
+            unread = session.search(None,'UNSEEN')[1][0].split(' ')
+            read_in = True
+        except (socket.error, imaplib.IMAP4.error):
+            print 'Disconnected! Trying to reconnect'
+            session = login(user,passwd)
+    
+    return unread, session
+    
+    
     
 if __name__ == "__main__":
     # See if previous login information exists in the keyring
@@ -91,73 +108,46 @@ if __name__ == "__main__":
         user,passwd = new_auth()
 
     session = login(user,passwd)
-
-    # Watch emails
-    print 'Watching inbox for a very, very long time'
+    
     try:
-        # Get the initial list of unread emails
-        read_in = False
-        
-        while not read_in:
-            try:
-                session.select()
-                prev = session.search(None,'UNSEEN')[1][0].split(' ')
-                read_in = True
-            except (socket.error, imaplib.IMAP4.error):
-                print 'Disconnected! Trying to reconnect'
-                session = login(user,passwd)
-        
-        
         # Get the initial number of unread emails
-        if prev[0] is '':
-            count = 0
-        else:
-            count = len(prev)
+        unread, session = get_unread(session)
+        count = 0 if unread[0] == '' else len(unread)
         
         # Display initial number of unread emails
         if count is 1:
-            n = pynotify.Notification("Successfully Authenticated!", "%d unread email" % count, "gmail")
+            n = pynotify.Notification('Successfully Authenticated!', '1 unread email', 'gmail')
         else:
-            n = pynotify.Notification("Successfully Authenticated!", "%d unread emails" % count, "gmail")
+            n = pynotify.Notification('Successfully Authenticated!', "%d unread emails" % count, 'gmail')
         
         n.show()
         
+        # Main loop: watch for new emails
         while True:
+            prev = unread
+            
             # Get a list of unread emails
-            
-            read_in = False
-            
-            while not read_in:
-                try:
-                    session.select()
-                    unread = session.search(None,'UNSEEN')[1][0].split(' ')
-                    read_in = True
-                except (socket.error, imaplib.IMAP4.error):
-                    print 'Disconnected! Trying to reconnect'
-                    session = login(user,passwd)
-            
-            new = []
-            
-            # Check if any of the unread emails is new, add them to a list
-            for email in unread:
-                if email not in prev and email is not '':
-                    new.append(email)
+            unread, session = get_unread(session)
+            new = [email for email in unread if email not in prev]
             
             # For each new email, show the subject and body
-            if new != []:
+            if new != [] and new != ['']:
                 try:
                     content = session.fetch(','.join(new), '(BODY.PEEK[1] BODY.PEEK[HEADER.FIELDS (SUBJECT)])')
                 except (socket.error, imaplib.IMAP4.error):
                     print 'Disconnected! Trying to reconnect'
                     session = login(user,passwd)
+                    
+                    # Repeat this loop
+                    unread = prev
+                    continue
                 
+                # Display a separate notification for each new email
                 for i in range(0,len(new)):
                     subj = content[1][3*i][1].strip()
                     msg = content[1][3*i+1][1][0:200]
                     n = pynotify.Notification(subj, msg, 'gmail')
                     n.show()
-            
-            prev = unread
             
             time.sleep(5)
             
