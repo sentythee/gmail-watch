@@ -46,7 +46,7 @@ def new_auth():
 def start_session():
     try:
         return imaplib.IMAP4_SSL('imap.gmail.com','993')
-    except socket.error:
+    except (socket.error, imaplib.IMAP4.error):
         return None
 
 def login(user,passwd):
@@ -73,7 +73,7 @@ def login(user,passwd):
             print 'Successfully authenticated!'
             logged_in = True
             
-        except imaplib.IMAP4.error as err:
+        except (socket.error, imaplib.IMAP4.error):
             print 'Could not authenticate! '
             user,passwd = new_auth()
     
@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 session.select()
                 prev = session.search(None,'UNSEEN')[1][0].split(' ')
                 read_in = True
-            except socket.error:
+            except (socket.error, imaplib.IMAP4.error):
                 print 'Disconnected! Trying to reconnect'
                 session = login(user,passwd)
         
@@ -132,25 +132,30 @@ if __name__ == "__main__":
                     session.select()
                     unread = session.search(None,'UNSEEN')[1][0].split(' ')
                     read_in = True
-                except socket.error:
+                except (socket.error, imaplib.IMAP4.error):
                     print 'Disconnected! Trying to reconnect'
                     session = login(user,passwd)
-                except imaplib.IMAP4.error:
-                    continue
             
-            # Check if any of the unread emails is new
+            new = []
+            
+            # Check if any of the unread emails is new, add them to a list
             for email in unread:
                 if email not in prev and email is not '':
-                    # Display a notification if there is a new unread email
-                    count = len(unread)
-                    
-                    if count is 1:
-                        n = pynotify.Notification("New Email!", "%d unread email" % count, "gmail")
-                    else:
-                        n = pynotify.Notification("New Email!", "%d unread emails" % count, "gmail")
-                    
+                    new.append(email)
+            
+            # For each new email, show the subject and body
+            if new != []:
+                try:
+                    content = session.fetch(','.join(new), '(BODY.PEEK[1] BODY.PEEK[HEADER.FIELDS (SUBJECT)])')
+                except (socket.error, imaplib.IMAP4.error):
+                    print 'Disconnected! Trying to reconnect'
+                    session = login(user,passwd)
+                
+                for i in range(0,len(new)):
+                    subj = content[1][3*i][1].strip()
+                    msg = content[1][3*i+1][1][0:200]
+                    n = pynotify.Notification(subj, msg, 'gmail')
                     n.show()
-                    break;
             
             prev = unread
             
