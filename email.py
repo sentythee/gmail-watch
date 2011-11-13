@@ -21,7 +21,7 @@ if len(missing_libs) is not 0:
     exit(0)   
 
 # Which keyring and key to use to store login information
-KEYRING_NAME = 'login'
+KEYRING_NAME = 'important'
 KEY_NAME = 'Gmail Watcher Login'
 
 # Clear old login entry and create a new one from user input
@@ -113,6 +113,8 @@ if __name__ == "__main__":
         # Get the initial number of unread emails
         unread, session = get_unread(session)
         count = 0 if unread[0] == '' else len(unread)
+
+        pynotify.init('Gmail Watcher')
         
         # Display initial number of unread emails
         if count is 1:
